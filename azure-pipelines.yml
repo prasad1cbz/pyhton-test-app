@@ -1,0 +1,49 @@
+trigger:
+- main
+
+variables:
+  azureServiceConnectionId: '5beec2a9-ead6-455a-90f7-472b672dda05'
+  webAppName: 'python-test'
+  name: Default
+  environmentName: 'pyhelloworldapp'
+  projectRoot: $(System.DefaultWorkingDirectory)
+  pythonVersion: '3.12.3'
+
+stages:
+- stage: BuildAndDeploy
+  displayName: 'Build and Deploy Stage'
+  jobs:
+  - job: BuildAndDeployJob
+    pool:
+      name: Default
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(pythonVersion)'
+        architecture: 'x64'
+      displayName: 'Use Python $(pythonVersion)'
+
+    - script: |
+        python -m venv antenv
+        source antenv/bin/activate
+        python -m pip install --upgrade pip
+        pip install setup
+        pip install -r requirements.txt
+      workingDirectory: $(projectRoot)
+      displayName: "Install requirements"
+
+    - task: ArchiveFiles@2
+      displayName: 'Archive files'
+      inputs:
+        rootFolderOrFile: '$(projectRoot)'
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        replaceExistingArchive: true
+
+    - task: AzureWebApp@1
+      displayName: 'Deploy Azure Web App : pyhelloworldapp'
+      inputs:
+        azureSubscription: $(azureServiceConnectionId)
+        appName: $(webAppName)
+        package: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
